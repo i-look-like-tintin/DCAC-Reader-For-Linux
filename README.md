@@ -17,7 +17,7 @@
 
 ---
 
-## Verifying Hardware Detection
+## 1. Verifying Hardware Detection
 
 Before installing software, verify your CAC reader is detected by the system:
 ```bash
@@ -33,7 +33,7 @@ The specific bus and device numbers will vary, but the vendor ID (04e6) and prod
 
 ---
 
-## Installing Required Packages
+## 2. Installing Required Packages
 
 ### Run the setup script
 ```bash
@@ -54,7 +54,7 @@ sudo systemctl enable pcscd.socket
 
 ---
 
-## Verifying Reader Detection
+## 3. Verifying Reader Detection
 
 After installing packages and starting the daemon, verify your reader is properly detected.
 
@@ -72,7 +72,7 @@ Press `Ctrl+C` to exit when done.
 
 **If you get "command not found":** Install pcsc-tools
 
-## Browser Configuration
+## 4. Browser Configuration
 
 To use your CAC with web browsers, you need to configure the PKCS#11 security module. PLEASE NOTE: Firefox has not fully worked for me thusfar; I have only had complete success with Chromium. 
 
@@ -114,7 +114,7 @@ modutil -dbdir sql:$HOME/.pki/nssdb -delete "OpenSC"
 
 ---
 
-## Service Management Options
+## 5. Service Management Options
 
 By default, `pcscd` runs continuously. For personal machines with occasional CAC use, you may prefer on-demand activation. If so, use this option below (it is also the same setup that I verified functionality with).
 
