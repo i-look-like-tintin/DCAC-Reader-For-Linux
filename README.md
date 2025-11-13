@@ -1,7 +1,8 @@
 # CAC Reader Setup Guide for Linux
 ## Manual Installation and Configuration
 
-This guide walks through setting up an Identiv Smartfold SCR3500-C CAC reader (or similar smart card readers) on Linux systems, specifically Arch Linux and Ubuntu/Debian derivatives. PLEASE NOTE: This has only been tested thusfar on Arch, and seems to only work for chromium-based browsers rather than firefox. I may work to test on more distros, and attempt to fix the browser requirement if the mood hits in future. 
+- This guide walks through setting up an Identiv Smartfold SCR3500-C CAC reader (or similar smart card readers) on Linux systems, specifically Arch Linux and Ubuntu/Debian derivatives.
+- PLEASE NOTE: This has only been tested thusfar on Arch, and seems to only work for chromium-based browsers rather than firefox. I may work to test on more distros, and attempt to fix the browser requirement if the mood hits in future. 
 
 ---
 
