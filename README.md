@@ -1,17 +1,25 @@
 # CAC Reader Setup Guide for Linux
 ## Manual Installation and Configuration
 
-- This guide walks through setting up an Identiv Smartfold SCR3500-C CAC reader on Linux systems, specifically Arch Linux and Ubuntu/Debian derivatives. Explicitly, this is intended for my workplace's specific Remote Electronic Access virtual machine/desktop system - although it could be applicable for other use cases. YMMV.  
-- PLEASE NOTE: This has only been tested thusfar on Arch, and seems to only work for chromium-based browsers rather than firefox. I may work to test on more distros, and attempt to fix the browser requirement if the mood hits in future.
-- Recommend following the steps precisely as listed in this README.
+This guide walks through setting up an Identiv Smartfold SCR3500-C CAC reader (or similar smart card readers) on Linux systems, specifically Arch Linux and Ubuntu/Debian derivatives.
 
-- As a side note, I am also figuring a couple of components of the setup aren't actually required, may look to remove them and re-test in future. 
+---
+
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [Verifying Hardware Detection](#verifying-hardware-detection)
+3. [Installing Required Packages](#installing-required-packages)
+4. [Configuring the PC/SC Daemon](#configuring-the-pcsc-daemon)
+5. [Verifying Reader Detection](#verifying-reader-detection)
+6. [Browser Configuration](#browser-configuration)
+7. [Service Management Options](#service-management-options)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Prerequisites
 
-- Issued CAC/smart card reader plugged into your system
+- A CAC/smart card reader plugged into your system
 - Admin/sudo access
 - Internet connection for package installation
 
@@ -35,22 +43,45 @@ The specific bus and device numbers will vary, but the vendor ID (04e6) and prod
 
 ## Installing Required Packages
 
-### Run the setup script
+### Arch Linux
 ```bash
-chmod +x setup_cac_reader.sh
-./setup_cac_reader.sh
+sudo pacman -S pcsclite ccid opensc pcsc-tools
 ```
-Ensure you attend to this installation - password will be required, and install prompts will be actioned. Highly, highly recommend accepting all install prompts unless you are dead confident you already have the relevant packages installed. 
+
+**Package descriptions:**
+- **pcsclite**: PC/SC middleware that provides smart card support
+- **ccid**: Driver for CCID-compliant smart card readers (your SCR3500 is CCID-compliant)
+- **opensc**: Smart card utilities and PKCS#11 module for cryptographic operations
+- **pcsc-tools**: Diagnostic and testing tools for smart card readers
+
+### Ubuntu/Debian
+```bash
+sudo apt update
+sudo apt install pcscd libccid opensc pcsc-tools
+```
+
+---
+
+## Configuring the PC/SC Daemon
+
+The PC/SC daemon (pcscd) handles communication between your system and the smart card reader.
 
 ### Start and enable the service:
 ```bash
-sudo systemctl start pcscd.socket
-sudo systemctl enable pcscd.socket
+sudo systemctl start pcscd.service
+sudo systemctl enable pcscd.service
 ```
 
 **What this does:**
 - `start`: Immediately starts the service
 - `enable`: Configures the service to start automatically on boot
+
+### Check service status:
+```bash
+systemctl status pcscd
+```
+
+You should see output indicating the service is "active (running)".
 
 ---
 
@@ -58,7 +89,7 @@ sudo systemctl enable pcscd.socket
 
 After installing packages and starting the daemon, verify your reader is properly detected.
 
-### Recommended Method: Using pcsc_scan (Detailed)
+### Method 1: Using pcsc_scan (Detailed)
 ```bash
 pcsc_scan
 ```
@@ -70,13 +101,22 @@ pcsc_scan
 
 Press `Ctrl+C` to exit when done.
 
-**If you get "command not found":** Install pcsc-tools
+**If you get "command not found":** Install pcsc-tools (see [Installing Required Packages](#installing-required-packages))
+
+### Method 2: Using opensc-tool (Quick check)
+```bash
+opensc-tool --list-readers
+```
+
+This provides a simple list of detected readers without continuous monitoring.
+
+---
 
 ## Browser Configuration
 
-To use your CAC with web browsers, you need to configure the PKCS#11 security module. PLEASE NOTE: Firefox has not fully worked for me thusfar; I have only had complete success with Chromium. 
+To use your CAC with web browsers, you need to configure the PKCS#11 security module.
 
-### Firefox (Seemingly not working - highly suggest the use of Chromium)
+### Firefox
 
 1. Open Firefox
 2. Navigate to `about:preferences#privacy`
@@ -116,9 +156,25 @@ modutil -dbdir sql:$HOME/.pki/nssdb -delete "OpenSC"
 
 ## Service Management Options
 
-By default, `pcscd` runs continuously. For personal machines with occasional CAC use, you may prefer on-demand activation. If so, use this option below (it is also the same setup that I verified functionality with).
+By default, `pcscd` runs continuously. For personal machines with occasional CAC use, you may prefer on-demand activation.
 
-### Recommended Additional Configuration: On-Demand via Socket Activation (Recommended for Personal Use)
+### Option 1: Always Running (Default)
+
+Service runs continuously in the background.
+```bash
+sudo systemctl enable pcscd.service
+sudo systemctl start pcscd.service
+```
+
+**Pros:**
+- Instant response when inserting CAC
+- Simple configuration
+
+**Cons:**
+- Uses system resources even when not needed
+- Slightly larger attack surface
+
+### Option 2: On-Demand via Socket Activation (Recommended for Personal Use)
 
 Service only starts when your CAC reader is accessed, then stops when idle.
 ```bash
@@ -131,6 +187,14 @@ sudo systemctl enable pcscd.socket
 sudo systemctl start pcscd.socket
 ```
 
+**Pros:**
+- Saves resources when not in use
+- Reduced attack surface
+- Automatic start when needed
+
+**Cons:**
+- Slight delay (1-2 seconds) on first access
+
 **Check socket status:**
 ```bash
 systemctl status pcscd.socket
@@ -140,8 +204,75 @@ systemctl status pcscd.socket
 
 ## Troubleshooting
 
-### Start an Issue
-I have not fully tested most configurations - besides the one specific configuration as detailed throughout the entirety of this README. I recommend following these recommendations to a tee, first. However, feel free to raise an issue if this doesn't work, or if an alternative configuration doesn't work for you - I will do my best to sort this.
+### Reader not detected
+
+**Check USB connection:**
+```bash
+lsusb
+```
+
+Verify your reader appears in the output.
+
+**Restart the PC/SC daemon:**
+```bash
+sudo systemctl restart pcscd
+```
+
+**Check for permission issues:**
+
+Some systems require users to be in the `pcscd` group:
+```bash
+# Check if group exists and if you're a member
+groups $USER
+
+# Add yourself to the group if needed
+sudo usermod -aG pcscd $USER
+```
+
+**Important:** Log out and back in for group changes to take effect.
+
+### Browser doesn't recognize certificates
+
+**Verify PKCS#11 module is loaded:**
+
+In Firefox, go to `about:preferences#privacy` → Security Devices and confirm "OpenSC PKCS#11" is listed.
+
+**Check card is detected:**
+```bash
+pkcs11-tool --list-slots
+```
+
+You should see your reader listed with a token present.
+
+**View certificates on card:**
+```bash
+pkcs11-tool --list-objects
+```
+
+### PIN prompt doesn't appear
+
+**Verify the card is detected:**
+```bash
+pcsc_scan
+```
+
+With your CAC inserted, you should see card details.
+
+**Check browser console:**
+- Firefox: `Ctrl+Shift+K` → Look for security/certificate errors
+- Chrome: `Ctrl+Shift+J` → Check for PKCS#11 related errors
+
+### Service fails to start
+
+**Check logs:**
+```bash
+journalctl -u pcscd -n 50
+```
+
+**Common issues:**
+- Conflicting drivers (check for other smart card software)
+- Permissions on `/var/run/pcscd/` directory
+- Reader firmware issues (try unplugging and replugging)
 
 ---
 
@@ -157,7 +288,7 @@ I have not fully tested most configurations - besides the one specific configura
 
 ## Security Notes
 
-- Never share your DCAC PIN with anyone
+- Never share your CAC PIN with anyone
 - Keep your CAC reader drivers updated
 - Use socket activation on personal devices to minimize exposure
 - Remove the PKCS#11 module from browsers when not needed for extended periods
@@ -177,16 +308,26 @@ sudo systemctl disable pcscd.service
 ```
 
 ### Remove packages
-Run the uninstall script:
 
+**Arch Linux:**
 ```bash
-chmod +x uninstall_cac_reader.sh
-./uninstall_cac_reader.sh
+sudo pacman -Rns pcsclite ccid opensc pcsc-tools
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt remove --purge pcscd libccid opensc pcsc-tools
+sudo apt autoremove
+```
+
+### Remove from group
+```bash
+sudo gpasswd -d $USER pcscd
 ```
 
 ### Browser cleanup
 
-**Firefox:** Go to Security Devices and unload the OpenSC module. Again, at this date I have not been able to get Firefox to work all the way through so Chromium is by far the best option for installation. 
+**Firefox:** Go to Security Devices and unload the OpenSC module
 
 **Chrome:**
 ```bash
@@ -198,4 +339,3 @@ modutil -dbdir sql:$HOME/.pki/nssdb -delete "OpenSC"
 **Document Version:** 1.0  
 **Last Updated:** November 2025  
 **Tested On:** Arch Linux
-**Any troubles, please feel free to raise an issue**
